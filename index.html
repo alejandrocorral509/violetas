@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta property="og:title" content="Un ramito de violetas">
+<meta property="og:description" content="Alguien te ha mandado flores.">
+<title>Un ramito de violetas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;1,6..96,400;1,6..96,500&family=Figtree:wght@400;500;600&family=La+Belle+Aurore&display=swap">
+<style>
+/* Layout: una sola columna centrada, de noche; el ramo se dibuja en canvas y la nota aparece debajo, en papel. */
+:root {
+  color-scheme: dark;
+  --night: #140f21;
+  --night-2: #221838;
+  --ink: #efe8f6;
+  --muted: #a89bbf;
+  --lilac: #b99ff1;
+  --paper: #ede3d1;
+  --paper-ink: #35264a;
+  --paper-line: #d8ccb6;
+  --seal: #5b2f97;
+  --font-display: "Bodoni Moda", "Didot", "Bodoni 72", Georgia, serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-hand: "La Belle Aurore", "Segoe Script", "Bradley Hand", cursive;
+}
+
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  background: radial-gradient(120% 80% at 50% 20%, var(--night-2) 0%, var(--night) 62%) fixed, var(--night);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.page {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
+}
+
+header { text-align: center; display: grid; gap: 6px; }
+.eyebrow {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(34px, 8vw, 56px);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+h1 em { font-style: normal; color: var(--lilac); }
+
+/* Escenario del ramo */
+.stage {
+  position: relative;
+  width: min(100%, 520px, 58vh);
+  aspect-ratio: 4 / 5;
+  max-width: 100%;
+}
+#ramo { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; touch-action: manipulation; }
+.tag {
+  position: absolute;
+  bottom: 16%; left: 0;
+  margin: 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 1.2s ease 2s;
+}
+.tag span { font-family: var(--font-body); font-style: normal; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; display: block; }
+.is-open .tag { opacity: 1; }
+
+.hint {
+  position: absolute; left: 0; right: 0; bottom: -4px;
+  margin: 0; text-align: center;
+  font-size: 13px; color: var(--muted);
+  opacity: 0; transition: opacity 0.8s ease;
+  pointer-events: none;
+}
+.hint.show { opacity: 1; }
+
+/* Sobre */
+.envelope {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.envelope.leaving { opacity: 0; transform: translateY(-12px) scale(0.97); pointer-events: none; }
+.card {
+  width: min(88%, 340px);
+  background: var(--paper);
+  color: var(--paper-ink);
+  border-radius: 4px;
+  padding: 34px 26px 26px;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.6);
+  text-align: center;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  position: relative;
+  transform: rotate(-1.2deg);
+}
+.seal { width: 64px; height: 64px; margin-top: -66px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.35)); }
+.card .from { margin: 0; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #5a4a70; }
+.card .msg { margin: 0; font-family: var(--font-display); font-style: italic; font-size: 24px; line-height: 1.2; text-wrap: balance; }
+.btn {
+  appearance: none; border: 0;
+  font: 600 15px/1 var(--font-body);
+  padding: 14px 22px;
+  border-radius: 999px;
+  background: var(--seal);
+  color: #fbf7ff;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease;
+}
+.btn:hover { background: #6b3aad; }
+.btn:active { transform: scale(0.97); }
+.btn:focus-visible, .link:focus-visible, .ghost:focus-visible { outline: 2px solid var(--lilac); outline-offset: 3px; }
+.card .pre { font-size: 14px; color: #4f3f66; }
+.card .pre a { color: var(--seal); font-weight: 600; }
+
+/* Música */
+.music {
+  width: min(100%, 520px);
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(185, 159, 241, 0.16);
+  box-sizing: border-box;
+}
+.music .slot { flex: none; width: 128px; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background: linear-gradient(135deg, #3a2463, #1c1430); }
+.music .slot iframe { width: 100%; height: 100%; display: block; border: 0; }
+.music .disc { display: none; }
+.music.is-playing .disc { animation: spin 3.2s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.music .info { min-width: 0; flex: 1; display: grid; gap: 2px; }
+.music .song { font-family: var(--font-display); font-style: italic; font-size: 18px; line-height: 1.2; }
+.music .artist { font-size: 13px; color: var(--muted); }
+.music .controls { flex: none; }
+.ghost {
+  appearance: none; background: transparent; cursor: pointer;
+  border: 1px solid rgba(185, 159, 241, 0.4); color: var(--ink);
+  font: 500 14px/1 var(--font-body); padding: 10px 14px; border-radius: 999px;
+}
+.ghost:hover { background: rgba(185, 159, 241, 0.12); }
+
+/* Nota */
+.note {
+  width: min(100%, 460px);
+  background: var(--paper);
+  color: var(--paper-ink);
+  border-radius: 3px;
+  padding: 30px 28px 26px;
+  box-sizing: border-box;
+  box-shadow: 0 28px 60px -24px rgba(0, 0, 0, 0.7);
+  background-image: repeating-linear-gradient(to bottom, transparent 0 33px, var(--paper-line) 33px 34px);
+  background-position: 0 14px;
+  transform: rotate(0.8deg);
+  animation: note-in 1s cubic-bezier(.2,.7,.2,1) both;
+}
+.note p { margin: 0 0 0; font-family: var(--font-hand); font-size: 21px; line-height: 34px; }
+.note .to { margin-bottom: 0; }
+.note .sign { text-align: right; font-size: 26px; margin-top: 10px; }
+@keyframes note-in { from { opacity: 0; transform: translateY(18px) rotate(0.8deg); } to { opacity: 1; transform: rotate(0.8deg); } }
+
+.again { display: flex; justify-content: center; }
+.again button { background: none; border: 0; color: var(--muted); font: 500 14px var(--font-body); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; padding: 6px; }
+.again button:hover { color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .note { animation: none; }
+  .envelope, .tag, .hint { transition: none; }
+  .music.is-playing .disc { animation: none; }
+}
+@media (max-width: 420px) {
+  .music .slot { width: 96px; }
+  .music .song { font-size: 16px; }
+}
+</style>
+
+</head>
+<body>
+<main class="page" id="page">
+  <header>
+    <p class="eyebrow" id="eyebrow">Un envío para ti</p>
+    <h1>Un ramito de <em>violetas</em></h1>
+  </header>
+
+  <div class="stage" id="stage">
+    <canvas id="ramo" aria-label="Ramo de violetas animado" role="img"></canvas>
+    <p class="tag">Viola odorata<span>violeta de olor</span></p>
+    <p class="hint" id="hint">Toca el ramo</p>
+
+    <div class="envelope" id="envelope">
+      <div class="card">
+        <svg class="seal" viewBox="0 0 64 64" aria-hidden="true">
+          <circle cx="32" cy="32" r="30" fill="#5b2f97"/>
+          <circle cx="32" cy="32" r="24" fill="none" stroke="#7d52bb" stroke-width="1.5"/>
+          <g fill="#c9b3f3">
+            <ellipse cx="26.5" cy="23" rx="5" ry="8" transform="rotate(-25 26.5 23)"/>
+            <ellipse cx="37.5" cy="23" rx="5" ry="8" transform="rotate(25 37.5 23)"/>
+            <ellipse cx="22" cy="33" rx="4.5" ry="7" transform="rotate(-80 22 33)"/>
+            <ellipse cx="42" cy="33" rx="4.5" ry="7" transform="rotate(80 42 33)"/>
+            <ellipse cx="32" cy="41" rx="6" ry="8.5"/>
+          </g>
+          <circle cx="32" cy="32" r="3" fill="#f2d065"/>
+        </svg>
+        <p class="from">Sin remitente</p>
+        <p class="msg">Alguien te ha mandado flores.</p>
+        <button class="btn" id="open" type="button">Abrir el envío</button>
+        <p class="pre">Sube el volumen</p>
+      </div>
+    </div>
+  </div>
+
+  <section class="music" id="music" aria-label="Canción">
+    <div class="slot"><div id="yt"></div></div>
+    <svg class="disc" viewBox="0 0 48 48" aria-hidden="true">
+      <circle cx="24" cy="24" r="23" fill="#1b1329" stroke="#3b2a5a"/>
+      <circle cx="24" cy="24" r="16" fill="none" stroke="#2c2042"/>
+      <circle cx="24" cy="24" r="9" fill="#5b2f97"/>
+      <circle cx="24" cy="24" r="2" fill="#140f21"/>
+    </svg>
+    <div class="info">
+      <span class="song">Un ramito de violetas</span>
+      <span class="artist">Manzanita</span>    </div>
+    <div class="controls">
+      <button class="ghost" id="toggle" type="button" hidden>Pausar</button>
+    </div>
+  </section>
+
+  <article class="note" id="note" hidden>
+    <p class="to" id="to">Para ti:</p>
+    <p>Ya que el tiempo no me deja dártelas en mano, me las apaño de esta forma.</p>
+    <p>En la canción, ella no sabía quién le enviaba las violetas. Tú no vas a tener esa duda: te las mando yo.</p>
+    <p>Te quiero.</p>
+    <p class="sign" id="sign">Alejandro</p>
+  </article>
+
+  <div class="again" id="again" hidden><button type="button" id="replay">Volver a abrir el ramo</button></div>
+</main>
+
+<script>
+/* ====== Personaliza aquí ====== */
+const PARA  = "";           // nombre de tu pareja, p. ej. "Lucía". Vacío = "Para ti"
+const FIRMA = "Alejandro";  // tu firma
+/* ============================== */
+
+const $ = (id) => document.getElementById(id);
+if (PARA) { $("eyebrow").textContent = "Un envío para " + PARA; $("to").textContent = "Para " + PARA + ":"; }
+$("sign").textContent = FIRMA;
+
+const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- Música: el estribillo desde YouTube, en bucle ---------- */
+const VIDEO = "kXpCmeGBIGk", DESDE = 45.5, HASTA = 77.5;
+let player = null, ytReady = false, playing = false, wantPlay = false;
+window.onYouTubeIframeAPIReady = function () {
+  player = new YT.Player("yt", {
+    videoId: VIDEO,
+    playerVars: { start: Math.floor(DESDE), playsinline: 1, rel: 0, controls: 0, disablekb: 1 },
+    events: {
+      onReady: () => {
+        ytReady = true;
+        $("toggle").hidden = false;
+        $("toggle").textContent = "Reproducir";
+        if (wantPlay) startMusic();
+      },
+      onStateChange: (e) => {
+        const on = e.data === 1;
+        playing = on;
+        $("music").classList.toggle("is-playing", on);
+        $("toggle").textContent = on ? "Pausar" : "Reproducir";
+        if (e.data === 0) { player.seekTo(DESDE, true); player.playVideo(); }
+      }
+    }
+  });
+};
+(function () {
+  const s = document.createElement("script");
+  s.src = "https://www.youtube.com/iframe_api";
+  document.head.appendChild(s);
+})();
+// bucle del estribillo con entrada y salida suaves
+setInterval(() => {
+  if (!ytReady || !playing) return;
+  const t = player.getCurrentTime();
+  if (t >= HASTA || t < DESDE - 2) { player.seekTo(DESDE, true); return; }
+  const v = Math.min(1, Math.max(0, (t - DESDE) / 1.5)) * Math.min(1, Math.max(0, (HASTA - t) / 2.5));
+  try { player.setVolume(Math.round(15 + 85 * v)); } catch (e) {}
+}, 100);
+function startMusic() {
+  wantPlay = true;
+  if (!ytReady) return;
+  const t = player.getCurrentTime();
+  if (t < DESDE - 1 || t > HASTA) player.seekTo(DESDE, true);
+  player.playVideo();
+}
+$("toggle").addEventListener("click", () => {
+  if (!ytReady) return;
+  playing ? player.pauseVideo() : startMusic();
+});
+
+/* ---------- Ramo en canvas ---------- */
+const cv = $("ramo"), ctx = cv.getContext("2d");
+let W = 0, H = 0;
+function resize() {
+  const r = cv.getBoundingClientRect();
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  W = r.width; H = r.height;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener("resize", resize);
+resize();
+
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rnd = mulberry32(9112026);
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+const easeBack = (t) => { const c = 1.9; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+
+const N = 21;
+const stems = [];
+for (let i = 0; i < N; i++) {
+  const k = (i / (N - 1)) * 2 - 1;
+  stems.push({
+    k,
+    a: k * 0.6 + (rnd() - 0.5) * 0.16,
+    L: 0.36 + (1 - Math.abs(k)) * 0.12 + rnd() * 0.07,
+    bend: (rnd() - 0.5) * 0.07,
+    size: 0.058 + rnd() * 0.02,
+    hue: 258 + rnd() * 22,
+    pale: rnd() < 0.22,
+    tilt: (rnd() - 0.5) * 0.7,
+    leafT: rnd() < 0.55 ? 0.3 + rnd() * 0.3 : null,
+    leafSide: rnd() < 0.5 ? -1 : 1
+  });
+}
+// florecen del centro hacia fuera
+stems.slice().sort((a, b) => Math.abs(a.k) - Math.abs(b.k) + (rnd() - 0.5) * 0.15)
+  .forEach((s, rank) => { s.delay = 0.7 + rank * 0.11; });
+
+const collar = [];
+for (let i = 0; i < 9; i++) {
+  const k = (i / 8) * 2 - 1;
+  collar.push({ a: k * 1.25 + (rnd() - 0.5) * 0.12, s: 0.12 + rnd() * 0.04, delay: 0.35 + Math.abs(k) * 0.35 });
+}
+
+function geom() {
+  const G = { x: W * 0.5, y: H * 0.64 };
+  return G;
+}
+function stemPts(s, G) {
+  const E = { x: G.x + Math.sin(s.a) * s.L * H * 0.98, y: G.y - Math.cos(s.a) * s.L * H };
+  const C = { x: G.x + Math.sin(s.a) * s.L * H * 0.3 + s.bend * W, y: G.y - Math.cos(s.a) * s.L * H * 0.62 };
+  return { E, C };
+}
+function q(G, C, E, t) {
+  const u = 1 - t;
+  return { x: u * u * G.x + 2 * u * t * C.x + t * t * E.x, y: u * u * G.y + 2 * u * t * C.y + t * t * E.y };
+}
+
+function leafShape(s) {
+  ctx.beginPath();
+  ctx.moveTo(0, -s * 0.06);
+  ctx.bezierCurveTo(-s * 0.28, s * 0.14, -s * 0.78, s * 0.02, -s * 0.72, -s * 0.46);
+  ctx.bezierCurveTo(-s * 0.66, -s * 0.92, -s * 0.22, -s * 1.12, 0, -s * 1.36);
+  ctx.bezierCurveTo(s * 0.22, -s * 1.12, s * 0.66, -s * 0.92, s * 0.72, -s * 0.46);
+  ctx.bezierCurveTo(s * 0.78, s * 0.02, s * 0.28, s * 0.14, 0, -s * 0.06);
+  ctx.closePath();
+}
+function drawLeaf(x, y, ang, s, dark) {
+  if (s <= 0.5) return;
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(ang);
+  const g = ctx.createLinearGradient(-s * 0.7, 0, s * 0.7, -s * 1.2);
+  g.addColorStop(0, dark ? "#2b4a2a" : "#36603a");
+  g.addColorStop(1, dark ? "#3f6b3a" : "#5b8c4b");
+  leafShape(s);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = "rgba(190, 220, 160, 0.35)"; ctx.lineWidth = Math.max(0.8, s * 0.025);
+  ctx.beginPath(); ctx.moveTo(0, -s * 0.05); ctx.quadraticCurveTo(s * 0.04, -s * 0.7, 0, -s * 1.22); ctx.stroke();
+  for (let j = 1; j <= 3; j++) {
+    const yy = -s * (0.25 + j * 0.22);
+    ctx.beginPath(); ctx.moveTo(0, yy); ctx.quadraticCurveTo(-s * 0.25, yy - s * 0.05, -s * 0.42, yy - s * 0.22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, yy); ctx.quadraticCurveTo(s * 0.25, yy - s * 0.05, s * 0.42, yy - s * 0.22); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function petal(ang, len, wid, c0, c1) {
+  ctx.save();
+  ctx.rotate(ang);
+  const g = ctx.createLinearGradient(0, 0, 0, -len);
+  g.addColorStop(0, c0); g.addColorStop(0.35, c1); g.addColorStop(1, c1);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.bezierCurveTo(-wid, -len * 0.25, -wid * 0.95, -len * 0.95, 0, -len);
+  ctx.bezierCurveTo(wid * 0.95, -len * 0.95, wid, -len * 0.25, 0, 0);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = "rgba(30, 10, 55, 0.35)"; ctx.lineWidth = Math.max(0.5, len * 0.02); ctx.stroke();
+  ctx.restore();
+}
+function drawViolet(x, y, size, rot, b, hue, pale) {
+  if (b <= 0.01) return;
+  const L1 = pale ? 66 : 42, L2 = pale ? 52 : 30;
+  const sat = pale ? 45 : 62;
+  const deep = `hsl(${hue} ${sat}% ${L2}%)`;
+  const mid = `hsl(${hue} ${sat}% ${L1}%)`;
+  const base = `hsl(${hue - 6} 40% 88%)`;
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(rot); ctx.scale(b, b);
+  const s = size;
+  petal(-0.5, s * 1.0, s * 0.56, mid, deep);
+  petal(0.5, s * 1.0, s * 0.56, mid, deep);
+  petal(-1.45, s * 0.86, s * 0.5, base, mid);
+  petal(1.45, s * 0.86, s * 0.5, base, mid);
+  petal(Math.PI, s * 0.98, s * 0.66, base, mid);
+  // vetas del pétalo de abajo
+  ctx.strokeStyle = `hsl(${hue} 70% 18% / 0.75)`; ctx.lineWidth = Math.max(0.6, s * 0.045); ctx.lineCap = "round";
+  for (const a of [-0.32, -0.12, 0.12, 0.32]) {
+    ctx.beginPath(); ctx.moveTo(0, s * 0.12);
+    ctx.lineTo(Math.sin(a) * s * 0.5, s * 0.12 + Math.cos(a) * s * 0.42); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.moveTo(0, s * 0.1); ctx.lineTo(0, s * 0.6); ctx.stroke();
+  // centro
+  ctx.fillStyle = "#f7f1ff"; ctx.beginPath(); ctx.arc(0, s * 0.02, s * 0.17, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#f0c84c"; ctx.beginPath(); ctx.arc(0, s * 0.04, s * 0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawWrapBack(G, p) {
+  const lift = (1 - p) * H * 0.08;
+  ctx.save(); ctx.globalAlpha = p; ctx.translate(0, lift);
+  ctx.beginPath();
+  ctx.moveTo(G.x - W * 0.42, G.y - H * 0.12);
+  ctx.quadraticCurveTo(G.x - W * 0.05, G.y - H * 0.26, G.x + W * 0.42, G.y - H * 0.1);
+  ctx.lineTo(G.x + W * 0.06, H * 0.985);
+  ctx.lineTo(G.x - W * 0.06, H * 0.985);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(0, G.y - H * 0.25, 0, H);
+  g.addColorStop(0, "#d9cdb6"); g.addColorStop(1, "#a99a82");
+  ctx.fillStyle = g; ctx.fill();
+  ctx.restore();
+}
+function coneHalf(G, y) {
+  const top = G.y + H * 0.02, bot = H * 0.985;
+  const t = clamp((y - top) / (bot - top));
+  return W * (0.31 - t * 0.255);
+}
+function drawWrapFront(G, p) {
+  const lift = (1 - p) * H * 0.08;
+  ctx.save(); ctx.globalAlpha = p; ctx.translate(0, lift);
+  // papel delantero
+  ctx.beginPath();
+  ctx.moveTo(G.x - W * 0.31, G.y + H * 0.02);
+  ctx.quadraticCurveTo(G.x, G.y + H * 0.075, G.x + W * 0.31, G.y);
+  ctx.lineTo(G.x + W * 0.055, H * 0.985);
+  ctx.lineTo(G.x - W * 0.055, H * 0.985);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(G.x - W * 0.3, 0, G.x + W * 0.3, 0);
+  g.addColorStop(0, "#cfc2aa"); g.addColorStop(0.45, "#efe5d3"); g.addColorStop(1, "#d6c9b1");
+  ctx.fillStyle = g; ctx.fill();
+  // pliegue
+  ctx.beginPath();
+  ctx.moveTo(G.x + W * 0.31, G.y);
+  ctx.quadraticCurveTo(G.x + W * 0.02, G.y + H * 0.12, G.x - W * 0.045, H * 0.985);
+  ctx.lineTo(G.x + W * 0.055, H * 0.985);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(120, 100, 80, 0.16)"; ctx.fill();
+  ctx.strokeStyle = "rgba(90, 70, 55, 0.25)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(G.x + W * 0.31, G.y); ctx.quadraticCurveTo(G.x + W * 0.02, G.y + H * 0.12, G.x - W * 0.045, H * 0.985); ctx.stroke();
+  // lazo
+  const ry = G.y + H * 0.17;
+  const hw = coneHalf(G, ry);
+  ctx.fillStyle = "#6a3fa5";
+  ctx.beginPath();
+  ctx.moveTo(G.x - hw - 2, ry - H * 0.014);
+  ctx.quadraticCurveTo(G.x, ry + H * 0.0, G.x + hw + 2, ry - H * 0.016);
+  ctx.lineTo(G.x + hw + 1, ry + H * 0.016);
+  ctx.quadraticCurveTo(G.x, ry + H * 0.03, G.x - hw - 1, ry + H * 0.018);
+  ctx.closePath(); ctx.fill();
+  const bx = G.x + W * 0.01, by = ry + H * 0.004, r = W * 0.075;
+  ctx.fillStyle = "#7b4cb8";
+  for (const side of [-1, 1]) {
+    ctx.save(); ctx.translate(bx, by); ctx.rotate(side * 0.35);
+    ctx.beginPath(); ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(side * r * 1.2, -r * 0.9, side * r * 1.5, r * 0.5, 0, 0);
+    ctx.fill(); ctx.restore();
+    ctx.beginPath(); ctx.moveTo(bx, by);
+    ctx.quadraticCurveTo(bx + side * r * 0.5, by + r * 0.9, bx + side * r * 0.75, by + r * 1.7);
+    ctx.lineTo(bx + side * r * 0.42, by + r * 1.6);
+    ctx.quadraticCurveTo(bx + side * r * 0.2, by + r * 0.8, bx, by);
+    ctx.fill();
+  }
+  ctx.fillStyle = "#57308f"; ctx.beginPath(); ctx.ellipse(bx, by, r * 0.22, r * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+/* Pétalos que caen */
+const petals = [];
+function spawnPetal(x, y, burst) {
+  petals.push({
+    x, y,
+    vx: burst ? (Math.random() - 0.5) * W * 0.25 : (Math.random() - 0.5) * W * 0.02,
+    vy: burst ? -Math.random() * H * 0.15 : H * (0.03 + Math.random() * 0.03),
+    r: W * (0.009 + Math.random() * 0.008),
+    rot: Math.random() * 6, vr: (Math.random() - 0.5) * 3,
+    sway: Math.random() * 6, hue: 258 + Math.random() * 24, life: 0
+  });
+}
+function drawPetals(dt) {
+  for (let i = petals.length - 1; i >= 0; i--) {
+    const p = petals[i];
+    p.life += dt;
+    p.vy += H * 0.05 * dt; p.vy = Math.min(p.vy, H * 0.09);
+    p.vx *= 0.985;
+    p.x += (p.vx + Math.sin(p.life * 2 + p.sway) * W * 0.03) * dt;
+    p.y += p.vy * dt; p.rot += p.vr * dt;
+    if (p.y > H + 20) { petals.splice(i, 1); continue; }
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(1, 0.55 + 0.45 * Math.abs(Math.sin(p.life * 3 + p.sway)));
+    ctx.fillStyle = `hsl(${p.hue} 58% 52% / 0.85)`;
+    ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r * 1.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+let t0 = null, last = 0, opened = false, spawnAcc = 0, hinted = false, noteShown = false;
+const BLOOM_END = Math.max(...stems.map(s => s.delay)) + 1.1 + 0.7;
+
+function frame(now) {
+  if (t0 === null) t0 = now;
+  const t = reduce ? 99 : (now - t0) / 1000;
+  const dt = Math.min(0.05, (now - last) / 1000 || 0.016); last = now;
+  ctx.clearRect(0, 0, W, H);
+  const G = geom();
+
+  // brillo de fondo
+  const gp = clamp((t - 0.6) / 2.5);
+  if (gp > 0) {
+    const rg = ctx.createRadialGradient(W * 0.5, H * 0.36, 0, W * 0.5, H * 0.36, W * 0.62);
+    rg.addColorStop(0, `rgba(185, 159, 241, ${0.2 * gp})`); rg.addColorStop(1, "rgba(185, 159, 241, 0)");
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+  }
+
+  const wp = easeOut(clamp(t / 0.9));
+  drawWrapBack(G, wp);
+
+  // hojas del cuello del ramo
+  for (const c of collar) {
+    const p = easeOut(clamp((t - c.delay) / 0.9));
+    const x = G.x + Math.sin(c.a) * H * 0.07, y = G.y - Math.cos(c.a) * H * 0.05;
+    drawLeaf(x, y, c.a * 0.95, c.s * H * p, true);
+  }
+
+  // tallos
+  const heads = [];
+  for (const s of stems) {
+    const p = easeOut(clamp((t - s.delay) / 1.1));
+    if (p <= 0) continue;
+    const { E, C } = stemPts(s, G);
+    ctx.strokeStyle = "#4d7a3e"; ctx.lineWidth = Math.max(1.2, W * 0.0065); ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(G.x, G.y);
+    const n = 24;
+    let tip = G;
+    for (let j = 1; j <= n; j++) { tip = q(G, C, E, (p * j) / n); ctx.lineTo(tip.x, tip.y); }
+    ctx.stroke();
+    if (s.leafT !== null && p > s.leafT) {
+      const lp = easeOut(clamp((p - s.leafT) / 0.4));
+      const lpnt = q(G, C, E, s.leafT);
+      drawLeaf(lpnt.x, lpnt.y, s.a + s.leafSide * 0.9, W * 0.06 * lp, false);
+    }
+    const b = easeBack(clamp((t - s.delay - 0.9) / 0.7));
+    heads.push({ x: tip.x, y: tip.y, s, b });
+  }
+  heads.sort((a, b) => a.y - b.y);
+  for (const h of heads) drawViolet(h.x, h.y, h.s.size * W, h.s.a * 0.55 + h.s.tilt, h.b, h.s.hue, h.s.pale);
+
+  drawWrapFront(G, wp);
+
+  // pétalos
+  if (t > BLOOM_END - 0.5 && !reduce) {
+    spawnAcc += dt;
+    if (spawnAcc > 0.7 && petals.length < 22) { spawnAcc = 0; spawnPetal(W * (0.15 + Math.random() * 0.7), -10, false); }
+  }
+  drawPetals(dt);
+
+  if (t > BLOOM_END && !noteShown) { noteShown = true; showNote(); }
+  requestAnimationFrame(frame);
+}
+
+function showNote() {
+  $("note").hidden = false;
+  $("again").hidden = false;
+  if (!hinted) { hinted = true; $("hint").classList.add("show"); setTimeout(() => $("hint").classList.remove("show"), 5000); }
+  setTimeout(() => { try { $("note").scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" }); } catch (e) {} }, 300);
+}
+
+let running = false;
+function open() {
+  if (opened) return;
+  opened = true;
+  startMusic();
+  $("stage").classList.add("is-open");
+  const env = $("envelope");
+  env.classList.add("leaving");
+  setTimeout(() => { env.hidden = true; }, 650);
+  t0 = null;
+  if (!running) { running = true; requestAnimationFrame(frame); }
+}
+$("open").addEventListener("click", open);
+
+$("replay").addEventListener("click", () => {
+  t0 = null; noteShown = true; petals.length = 0;
+  window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+});
+
+cv.addEventListener("click", (e) => {
+  if (!opened) return;
+  const r = cv.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  for (let i = 0; i < 18; i++) spawnPetal(x + (Math.random() - 0.5) * 30, y + (Math.random() - 0.5) * 30, true);
+});
+</script>
+
+</body>
+</html>
